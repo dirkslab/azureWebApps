@@ -1,0 +1,503 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "departmentName": {
+      "type": "string",
+      "minLength": 1,
+      "metadata": {
+        "description": "Describes the name of the Department"
+      }
+    },
+    "applicationName": {
+      "type": "string",
+      "minLength": 1,
+      "metadata": {
+        "description": "Describes the name of the new Application"
+      }
+    },
+    "createdBy": {
+      "type": "string",
+      "minLength": 1,
+      "metadata": {
+        "description": "Describes the name of the new website"
+      }
+    },
+    "existingKeyVaultSecretName1": {
+      "type": "string",
+      "metadata": {
+        "description": "Key Vault Secret that contains a PFX certificate"
+      }
+    },
+    "existingKeyVaultSecretName2": {
+      "type": "string",
+      "metadata": {
+        "description": "Key Vault Secret that contains a PFX certificate"
+      }
+    },
+      "webSiteName1": {
+        "type": "string",
+        "minLength": 1,
+        "metadata": {
+          "description": "Describes the name of the new website"
+        }
+      },
+      "appInsightsName1": {
+        "type": "string",
+        "minLength": 1,
+        "metadata": {
+          "description": "Describes the name of the Application Insights resource"
+        }
+      },
+      "customHostName1": {
+        "type": "string",
+        "metadata": {
+          "description": "The custom hostname that you wish to add."
+        }
+      },
+      "webSiteName2": {
+        "type": "string",
+        "minLength": 1,
+        "metadata": {
+          "description": "Describes the name of the new website"
+        }
+      },
+      "appInsightsName2": {
+        "type": "string",
+        "minLength": 1,
+        "metadata": {
+          "description": "Describes the name of the Application Insights resource"
+        }
+      },
+      "existingKeyVaultSecretName2": {
+        "type": "string",
+        "metadata": {
+          "description": "Key Vault Secret that contains a PFX certificate"
+        }
+      },
+      "webSiteName3": {
+        "type": "string",
+        "minLength": 1,
+        "metadata": {
+          "description": "Describes the name of the new website"
+        }
+      },
+      "appInsightsName3": {
+        "type": "string",
+        "minLength": 1,
+        "metadata": {
+          "description": "Describes the name of the Application Insights resource"
+        }
+      },
+      "existingKeyVaultId": {
+        "type": "string",
+        "metadata": {
+          "description": "Existing Key Vault resource Id with an access policy to allow Microsoft.Web RP to read Key Vault secrets (Checkout README.md for more information)"
+        }
+      },
+      "hostingPlanName": {
+        "type": "string",
+        "minLength": 1
+      },
+      "skuName": {
+        "type": "string",
+        "defaultValue": "F1",
+        "allowedValues": [
+          "F1",
+          "D1",
+          "B1",
+          "B2",
+          "B3",
+          "S1",
+          "S2",
+          "S3",
+          "P1",
+          "P2",
+          "P3",
+          "P4",
+          "P1v2",
+          "P2v2",
+          "P3v2"
+        ],
+        "metadata": {
+          "description": "Describes plan's pricing tier and capacity. Check details at https://azure.microsoft.com/en-us/pricing/details/app-service/"
+        }
+      },
+      "skuCapacity": {
+        "type": "int",
+        "defaultValue": 1,
+        "minValue": 1,
+        "metadata": {
+          "description": "Describes plan's instance count"
+        }
+      },
+      "WEBSITE_NODE_DEFAULT_VERSION_faPortal": {
+        "type": "string"
+      },
+      "ASPNETCORE_ENVIRONMENT_faPortal": {
+        "type": "string"
+      },
+      "diagLogStorageAccountName": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 9,
+        "defaultValue": "diaglogs",
+        "metadata": {
+          "description": "Describes the name webapps diag logs storage account"
+        }
+      },
+      "storageAccountType": {
+        "type": "string",
+        "defaultValue": "Standard_LRS",
+        "allowedValues": [
+          "Standard_LRS",
+          "Standard_GRS",
+          "Standard_RAGRS",
+          "Standard_ZRS",
+          "Premium_LRS"
+        ],
+        "metadata": {
+          "description": "Storage Account type."
+        }
+      }
+    },
+  "variables": {
+    "diagLogStorageAccountName": "[toLower( concat(parameters('diagLogStorageAccountName'), uniqueString(resourceGroup().id)))]",
+    "certificateName1": "[concat(parameters('existingKeyVaultSecretName1'),'-cert-', uniquestring(resourceGroup().id))]",
+    "certificateName2": "[concat(parameters('existingKeyVaultSecretName2'),'-cert-', uniquestring(resourceGroup().id))]"
+  },
+    "resources": [
+      {
+        "type": "Microsoft.Storage/storageAccounts",
+        "sku": {
+          "name": "[parameters('storageAccountType')]",
+          "tier": "Standard"
+        },
+        "kind": "Storage",
+        "name": "[variables('diagLogStorageAccountName')]",
+        "apiVersion": "2017-06-01",
+        "location": "[resourceGroup().location]",
+        "tags": {},
+        "scale": null,
+        "properties": {
+          "networkAcls": {
+            "bypass": "AzureServices",
+            "virtualNetworkRules": [],
+            "ipRules": [],
+            "defaultAction": "Allow"
+          },
+          "supportsHttpsTrafficOnly": true,
+          "encryption": {
+            "services": {
+              "file": {
+                "enabled": true
+              },
+              "blob": {
+                "enabled": true
+              }
+            },
+            "keySource": "Microsoft.Storage"
+          }
+        },
+        "dependsOn": []
+      },
+      {
+        "apiVersion": "2015-08-01",
+        "name": "[parameters('hostingPlanName')]",
+        "type": "Microsoft.Web/serverfarms",
+        "location": "[resourceGroup().location]",
+        "tags": {
+          "displayName": "HostingPlan"
+        },
+        "sku": {
+          "name": "[parameters('skuName')]",
+          "capacity": "[parameters('skuCapacity')]"
+        },
+        "properties": {
+          "name": "[parameters('hostingPlanName')]"
+        }
+      },
+      {
+        "apiVersion": "2015-08-01",
+        "name": "[parameters('webSiteName1')]",
+        "type": "Microsoft.Web/sites",
+        "location": "[resourceGroup().location]",
+        "tags": {
+          "[concat('hidden-related:', resourceGroup().id, '/providers/Microsoft.Web/serverfarms/', parameters('hostingPlanName'))]": "Resource",
+          "displayName": "[parameters('webSiteName1')]"
+        },
+        "dependsOn": [
+          "[resourceId('Microsoft.Web/serverfarms/', parameters('hostingPlanName'))]"
+        ],
+        "properties": {
+          "name": "[parameters('webSiteName1')]",
+          "enabled": true,
+          "hostNameSslStates": [
+            {
+              "name": "[concat(parameters('webSiteName1'),'.azurewebsites.net')]",
+              "sslState": "SniEnabled",
+              "virtualIP": null,
+              "thumbprint": null,
+              "toUpdate": null,
+              "hostType": "Standard"
+            },
+            {
+              "name": "[concat(parameters('webSiteName1'),'.scm.azurewebsites.net')]",
+              "sslState": "SniEnabled",
+              "virtualIP": null,
+              "thumbprint": null,
+              "toUpdate": null,
+              "hostType": "Repository"
+            }
+          ],
+          "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('hostingPlanName'))]"
+        },
+        "resources": [
+          {
+            "apiVersion": "2015-08-01",
+            "name": "appsettings",
+            "type": "config",
+            "dependsOn": [
+              "[resourceId('Microsoft.Web/Sites', parameters('webSiteName1'))]",
+              "[resourceId('microsoft.insights/components', parameters('appInsightsName1'))]",
+              "Microsoft.ApplicationInsights.AzureWebSites"
+            ],
+            "properties": {
+              "APPINSIGHTS_INSTRUMENTATIONKEY": "[reference(concat('microsoft.insights/components/', parameters('appInsightsName1'))).InstrumentationKey]",
+              "WEBSITE_NODE_DEFAULT_VERSION": "[parameters('WEBSITE_NODE_DEFAULT_VERSION_faPortal')]",
+              "ASPNETCORE_ENVIRONMENT": "[parameters('ASPNETCORE_ENVIRONMENT_faPortal')]"
+            }
+          },
+          {
+            "apiVersion": "2015-08-01",
+            "name": "Microsoft.ApplicationInsights.AzureWebSites",
+            "type": "siteextensions",
+            "dependsOn": [
+              "[resourceId('Microsoft.Web/Sites', parameters('webSiteName1'))]"
+            ],
+            "properties": {
+            }
+          }
+        ]
+      },
+      {
+        "apiVersion": "2014-04-01",
+        "name": "[parameters('appInsightsName1')]",
+        "type": "Microsoft.Insights/components",
+        "location": "[resourceGroup().location]",
+        "dependsOn": [
+          "[resourceId('Microsoft.Web/sites/', parameters('webSiteName1'))]"
+        ],
+        "tags": {
+          "[concat('hidden-link:', resourceGroup().id, '/providers/Microsoft.Web/sites/', parameters('webSiteName1'))]": "Resource",
+          "displayName": "AppInsightsComponent"
+        },
+        "properties": {
+          "applicationId": "[parameters('appInsightsName1')]"
+        }
+      },
+      {
+        "type": "Microsoft.Web/certificates",
+        "name": "[variables('certificateName1')]",
+        "apiVersion": "2016-03-01",
+        "location": "[resourceGroup().location]",
+        "tags": {
+          "Department": "[parameters('departmentName')]",
+          "Application": "[parameters('applicationName')]",
+          "CreatedBy": "[parameters('createdBy')]",
+          "displayName": "[concat(parameters('existingKeyVaultSecretName1'),'-','certificate')]",
+          "[concat('hidden-link:', resourceGroup().id, '/providers/Microsoft.Web/sites/', parameters('webSiteName1'))]": "Resource"
+        },
+        "properties": {
+          "keyVaultId": "[parameters('existingKeyVaultId')]",
+          "keyVaultSecretName": "[parameters('existingKeyVaultSecretName1')]",
+          "serverFarmId": "[resourceId('Microsoft.Web/serverFarms',parameters('hostingPlanName'))]"
+        },
+        "dependsOn": [
+          "[concat('Microsoft.Web/sites/',parameters('webSiteName1'))]"
+        ]
+      },
+      {
+        "type": "Microsoft.Web/certificates",
+        "name": "[variables('certificateName2')]",
+        "apiVersion": "2016-03-01",
+        "location": "[resourceGroup().location]",
+        "properties": {
+          "keyVaultId": "[parameters('existingKeyVaultId')]",
+          "keyVaultSecretName": "[parameters('existingKeyVaultSecretName2')]",
+          "serverFarmId": "[resourceId('Microsoft.Web/serverFarms',parameters('hostingPlanName'))]"
+        },
+        "dependsOn": [
+          "[concat('Microsoft.Web/sites/',parameters('webSiteName1'))]"
+        ]
+      },
+      {
+        "type": "Microsoft.Web/sites/hostnameBindings",
+        "name": "[concat(parameters('webSiteName1'), '/', parameters('customHostname1'))]",
+        "apiVersion": "2016-03-01",
+        "location": "[resourceGroup().location]",
+        "properties": {
+          "sslState": "SniEnabled",
+          "thumbprint": "[reference(resourceId('Microsoft.Web/certificates', variables('certificateName1'))).Thumbprint]"
+        },
+        "dependsOn": [
+          "[concat('Microsoft.Web/certificates/',variables('certificateName1'))]"
+        ]
+      },
+      {
+        "apiVersion": "2015-08-01",
+        "name": "[parameters('webSiteName2')]",
+        "type": "Microsoft.Web/sites",
+        "location": "[resourceGroup().location]",
+        "tags": {
+          "[concat('hidden-related:', resourceGroup().id, '/providers/Microsoft.Web/serverfarms/', parameters('hostingPlanName'))]": "Resource",
+          "displayName": "[parameters('webSiteName2')]"
+        },
+        "dependsOn": [
+          "[resourceId('Microsoft.Web/serverfarms/', parameters('hostingPlanName'))]"
+        ],
+        "properties": {
+          "name": "[parameters('webSiteName2')]",
+          "enabled": true,
+          "hostNameSslStates": [
+            {
+              "name": "[concat(parameters('webSiteName2'),'.azurewebsites.net')]",
+              "sslState": "SniEnabled",
+              "virtualIP": null,
+              "thumbprint": null,
+              "toUpdate": null,
+              "hostType": "Standard"
+            },
+            {
+              "name": "[concat(parameters('webSiteName2'),'.scm.azurewebsites.net')]",
+              "sslState": "SniEnabled",
+              "virtualIP": null,
+              "thumbprint": null,
+              "toUpdate": null,
+              "hostType": "Repository"
+            }
+          ],
+          "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('hostingPlanName'))]"
+        },
+        "resources": [
+          {
+            "apiVersion": "2015-08-01",
+            "name": "appsettings",
+            "type": "config",
+            "dependsOn": [
+              "[resourceId('Microsoft.Web/Sites', parameters('webSiteName2'))]",
+              "[resourceId('microsoft.insights/components', parameters('appInsightsName2'))]",
+              "Microsoft.ApplicationInsights.AzureWebSites"
+            ],
+            "properties": {
+              "APPINSIGHTS_INSTRUMENTATIONKEY": "[reference(concat('microsoft.insights/components/', parameters('appInsightsName2'))).InstrumentationKey]"
+            }
+          },
+          {
+            "apiVersion": "2015-08-01",
+            "name": "Microsoft.ApplicationInsights.AzureWebSites",
+            "type": "siteextensions",
+            "dependsOn": [
+              "[resourceId('Microsoft.Web/Sites', parameters('webSiteName2'))]"
+            ],
+            "properties": {
+            }
+          }
+
+        ]
+      },
+      {
+        "apiVersion": "2014-04-01",
+        "name": "[parameters('appInsightsName2')]",
+        "type": "Microsoft.Insights/components",
+        "location": "westeurope",
+        "dependsOn": [
+          "[resourceId('Microsoft.Web/sites/', parameters('webSiteName2'))]"
+        ],
+        "tags": {
+          "[concat('hidden-link:', resourceGroup().id, '/providers/Microsoft.Web/sites/', parameters('webSiteName2'))]": "Resource",
+          "displayName": "AppInsightsComponent"
+        },
+        "properties": {
+          "applicationId": "[parameters('appInsightsName2')]"
+        }
+      },
+      {
+        "apiVersion": "2015-08-01",
+        "name": "[parameters('webSiteName3')]",
+        "type": "Microsoft.Web/sites",
+        "location": "[resourceGroup().location]",
+        "tags": {
+          "[concat('hidden-related:', resourceGroup().id, '/providers/Microsoft.Web/serverfarms/', parameters('hostingPlanName'))]": "Resource",
+          "displayName": "[parameters('webSiteName3')]"
+        },
+        "dependsOn": [
+          "[resourceId('Microsoft.Web/serverfarms/', parameters('hostingPlanName'))]"
+        ],
+        "properties": {
+          "name": "[parameters('webSiteName3')]",
+          "enabled": true,
+          "hostNameSslStates": [
+            {
+              "name": "[concat(parameters('webSiteName3'),'.azurewebsites.net')]",
+              "sslState": "SniEnabled",
+              "virtualIP": null,
+              "thumbprint": null,
+              "toUpdate": null,
+              "hostType": "Standard"
+            },
+            {
+              "name": "[concat(parameters('webSiteName3'),'.scm.azurewebsites.net')]",
+              "sslState": "SniEnabled",
+              "virtualIP": null,
+              "thumbprint": null,
+              "toUpdate": null,
+              "hostType": "Repository"
+            }
+          ],
+          "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('hostingPlanName'))]"
+        },
+        "resources": [
+          {
+            "apiVersion": "2015-08-01",
+            "name": "appsettings",
+            "type": "config",
+            "dependsOn": [
+              "[resourceId('Microsoft.Web/Sites', parameters('webSiteName3'))]",
+              "[resourceId('microsoft.insights/components', parameters('appInsightsName3'))]",
+              "Microsoft.ApplicationInsights.AzureWebSites"
+            ],
+            "properties": {
+              "APPINSIGHTS_INSTRUMENTATIONKEY": "[reference(concat('microsoft.insights/components/', parameters('appInsightsName3'))).InstrumentationKey]"
+            }
+          },
+          {
+            "apiVersion": "2015-08-01",
+            "name": "Microsoft.ApplicationInsights.AzureWebSites",
+            "type": "siteextensions",
+            "dependsOn": [
+              "[resourceId('Microsoft.Web/Sites', parameters('webSiteName3'))]"
+            ],
+            "properties": {
+            }
+          }
+        ]
+      },
+      {
+        "apiVersion": "2014-04-01",
+        "name": "[parameters('appInsightsName3')]",
+        "type": "Microsoft.Insights/components",
+        "location": "[resourceGroup().location]",
+        "dependsOn": [
+          "[resourceId('Microsoft.Web/sites/', parameters('webSiteName3'))]"
+        ],
+        "tags": {
+          "[concat('hidden-link:', resourceGroup().id, '/providers/Microsoft.Web/sites/', parameters('webSiteName3'))]": "Resource",
+          "displayName": "AppInsightsComponent"
+        },
+        "properties": {
+          "applicationId": "[parameters('appInsightsName3')]"
+        }
+      }
+    ]
+  }
